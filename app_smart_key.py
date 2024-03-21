@@ -3,7 +3,11 @@ from tkinter import messagebox
 
 from constants.app_consts import (PADX, PADY)
 from services.db_manager import (db_init,
-                                 check_users_pin)
+                                 check_users_pin,
+                                 get_all_users,
+                                 get_user,
+                                 delete_user,
+                                 save_user)
 
 
 db_init()
@@ -20,7 +24,7 @@ def on_door_bell():
 
 def on_unlock():
     frm_pins.pack(padx=PADX, pady=PADY)
-    frm_admin.pack(padx=PADX, pady=PADY)
+    
 #endregion
 
 #region PIN FUNCTIONS
@@ -63,7 +67,6 @@ def on_pin_c():
 
     pin_value = pin_value[ : -1 ]
     lbl_pin_var.set(pin_value)
-    lbl_placeholder_admin_var.set(pin_value)
     lbl_pin_message_var.set(init_pin_message)
     update_pin_labels(pin_value)
 
@@ -73,23 +76,26 @@ def on_pin_ce():
     lbl_pin_2_var.set('')
     lbl_pin_3_var.set('')
     lbl_pin_4_var.set('')
-    lbl_placeholder_admin_var.set('')
     lbl_pin_message_var.set(init_pin_message)
 
 def pin(number: str):
     pin_value = lbl_pin_var.get()
 
     if len(pin_value) < 4:
-        pin_value = lbl_pin_var.get()
         pin_value += number
         lbl_pin_var.set(pin_value)
-        lbl_placeholder_admin_var.set(pin_value)
         update_pin_labels(pin_value)
-
-    elif len(pin_value) == 4:
-        lbl_pin_message_var.set(f'PIN: {pin_value} ne postoji u bazi')
-        return
-
+        if len(pin_value) == 4:
+            user = check_users_pin(pin_value)
+            if user != None:
+                welcome_message = f'Dobro dosli!'
+                welcome_message += f'{user[1]} {user[2]}'
+                lbl_pin_message_var.set(f'{welcome_message}')
+                frm_admin.pack(padx=PADX, pady=PADY)
+                return
+            else:
+                lbl_pin_message_var.set(f'PIN: {pin_value} ne postoji u bazi')
+                return
 
 def update_pin_labels(pin_value):
     pin_lenght = len(pin_value)
@@ -123,12 +129,56 @@ def update_pin_labels(pin_value):
             lbl_pin_2_var.set(pin_value[1])
             lbl_pin_3_var.set(pin_value[2])
             lbl_pin_4_var.set(pin_value[3])            
-            lbl_pin_message_var.set(f'PIN: {pin_value} ne postoji u bazi')
     
 
 #endregion
 
 #region ADMIN FUNCTIONS
+def fill_users_listbox():
+    users = get_all_users()
+    lb_users.delete(0, tk.END)
+
+    for user in users:
+        lb_users.insert(tk.END, user)
+
+
+def on_element_select(event):
+    listbox_value = lb_users.get(lb_users.curselection())
+    user = get_user(listbox_value[0])
+    
+    user_id_var.set(user[0])
+    first_name_var.set(user[1])
+    last_name_var.set(user[2])
+    pin_form_var.set(user[3])
+    is_active_var.set(user[4])
+
+
+def on_save():
+    first_name = first_name_var.get()
+    last_name = last_name_var.get()
+    pin = pin_form_var.get()
+    is_active = is_active_var.get()
+
+    save_user(pin_form_var.get(), first_name, last_name, pin, is_active)
+    fill_users_listbox()
+    
+
+def on_cancel():
+    lb_users.selection_clear(0, tk.END)
+    
+    user_id_var.set(0)
+    first_name_var.set('')
+    last_name_var.set('')
+    pin_form_var.set('')
+    is_active_var.set(0)
+
+def on_delete():
+    selected_user = lb_users.curselection()
+    user = get_user(selected_user[0] + 1)
+    
+    delete_user(user[0])
+    fill_users_listbox()
+    on_cancel()
 
 #endregion
 
@@ -244,15 +294,66 @@ frm_admin = tk.Frame(main_window,
                      relief='raised',
                      width=400, height=350)
 
-lbl_placeholder_admin_var = tk.StringVar()
-lbl_placeholder_admin = tk.Label(frm_admin,
-                           text='PLACEHOLDER',
-                           textvariable=lbl_placeholder_admin_var)
-lbl_placeholder_admin.grid(row=0, column=0)
+lb_users = tk.Listbox(frm_admin)
+lb_users.grid(row=0, column=0, rowspan=5)
+sc_lb_users = tk.Scrollbar(frm_admin,
+                           orient=tk.VERTICAL,
+                           command=lb_users.yview)
+sc_lb_users.grid(row=0, column=1, rowspan=5)
+lb_users.config(yscrollcommand=sc_lb_users.set)
+fill_users_listbox()
+lb_users.bind('<<ListboxSelect>>', on_element_select)
+
+#region USERS FORM
+user_id_var = tk.IntVar()
+lbl_first_name = tk.Label(frm_admin, text='Ime')
+lbl_first_name.grid(row=0, column=2, padx=PADX)
+first_name_var = tk.StringVar()
+entry_first_name = tk.Entry(frm_admin,
+                            textvariable=first_name_var)
+entry_first_name.grid(row=0, column=3, columnspan=2, padx=PADX)
+
+lbl_last_name = tk.Label(frm_admin, text='Prezime')
+lbl_last_name.grid(row=1, column=2, padx=PADX)
+last_name_var = tk.StringVar()
+entry_last_name = tk.Entry(frm_admin,
+                            textvariable=last_name_var)
+entry_last_name.grid(row=1, column=3, columnspan=2, padx=PADX)
+
+lbl_pin = tk.Label(frm_admin, text='PIN (4 broja)')
+lbl_pin.grid(row=2, column=2, padx=PADX)
+pin_form_var = tk.StringVar()
+entry_pin = tk.Entry(frm_admin,
+                            textvariable=pin_form_var)
+entry_pin.grid(row=2, column=3, columnspan=2, padx=PADX)
+
+lbl_is_active = tk.Label(frm_admin, text='Aktivan')
+lbl_is_active.grid(row=3, column=2, padx=PADX)
+
+is_active_var = tk.IntVar()
+cb_is_active = tk.Checkbutton(frm_admin, variable=is_active_var)
+cb_is_active.grid(row=3, column=3, columnspan=2, padx=PADX)
+
+#endregion
+
+btn_save = tk.Button(frm_admin,
+                     text='Spremi',
+                     command=on_save)
+btn_save.grid(row=4, column=2, padx=PADX, pady=PADY)
+
+btn_cancel = tk.Button(frm_admin,
+                     text='Odustani',
+                     command=on_cancel)
+btn_cancel.grid(row=4, column=3, padx=PADX, pady=PADY)
+
+btn_delete = tk.Button(frm_admin,
+                     text='Izbrisi',
+                     command=on_delete)
+btn_delete.grid(row=4, column=4, padx=PADX, pady=PADY)
+
 #endregion
 
 
 
 if __name__ == '__main__':
-    check_users_pin('1234')
     main_window.mainloop()

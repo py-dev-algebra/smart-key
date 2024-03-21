@@ -48,3 +48,67 @@ def check_users_pin(pin: str):
     cursor.close()
     conn.close()
     return None
+
+
+def get_all_users():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+   
+    cursor.execute('SELECT * FROM users')
+    users = cursor.fetchall()    
+    
+    cursor.close()
+    conn.close()
+    return users
+
+
+def get_user(id: int):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+   
+    cursor.execute('SELECT * FROM users WHERE id=?', (id,))
+    user = cursor.fetchone()
+    
+    cursor.close()
+    conn.close()
+    return user
+
+
+def delete_user(id: int):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+   
+    cursor.execute('DELETE FROM users WHERE id=?', (id,))
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+def save_user(id: int, first_name: str, last_name: str, pin: str, is_active: int):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+     
+    cursor.execute('SELECT * FROM users WHERE id = ?', (id,))
+    user = cursor.fetchone()
+
+    if user:
+        cursor.execute('''
+                       UPDATE users
+                       SET first_name = ?,
+                            last_name = ?,
+                            pin = ?,
+                            is_active = ?)
+                       WHERE id = ?
+                        ''',
+                        (first_name, last_name, pin, is_active, id))
+    else:
+        cursor.execute('''
+                        INSERT INTO users (first_name, last_name, pin, is_active)
+                        VALUES (?, ?, ?, ?)
+                        ''',
+                        (first_name, last_name, pin, is_active))
+
+    conn.commit()
+    cursor.close()
+    conn.close()
