@@ -184,8 +184,6 @@ def on_delete():
 
 #endregion
 
-
-
 #region FRAME BUTTONS
 frm_buttons = tk.Frame(main_window,
                        borderwidth=5,
